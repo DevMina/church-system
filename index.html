@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="نظام إدارة الكنيسة — الحضور والغياب وبيانات الأعضاء">
+  <meta name="theme-color" content="#1E2A4A">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛪</text></svg>">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>نظام إدارة الكنيسة</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- QR Code Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════ صفحة تسجيل الدخول ═══════════════ -->
+<div id="authShell" class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="cross"></div>
+      <h1>إدارة الكنيسة</h1>
+      <p>نظام الحضور والغياب وبيانات الأعضاء</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">إنشاء حساب</button>
+      <button class="auth-tab" onclick="switchAuthTab('forgot')">نسيت كلمة المرور</button>
+    </div>
+    <form id="loginForm" class="auth-form active" onsubmit="handleLogin(event)">
+      <div class="alert alert-error" id="loginError"></div>
+      <div class="form-group">
+        <label>اسم المستخدم <span class="req">*</span></label>
+        <input type="text" name="username" class="form-control" placeholder="أدخل اسم المستخدم" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور <span class="req">*</span></label>
+        <input type="password" name="password" class="form-control" placeholder="أدخل كلمة المرور" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="loginBtn">تسجيل الدخول</button>
+    </form>
+    <form id="registerForm" class="auth-form" onsubmit="handleRegister(event)">
+      <div class="alert alert-error" id="registerError"></div>
+      <div class="alert alert-success" id="registerSuccess"></div>
+      <div class="form-group">
+        <label>اسم المستخدم <span class="req">*</span></label>
+        <input type="text" name="username" class="form-control" placeholder="اختر اسم مستخدم" required>
+      </div>
+      <div class="form-group">
+        <label>البريد الإلكتروني <span class="req">*</span></label>
+        <input type="email" name="email" class="form-control" placeholder="بريدك الإلكتروني" required>
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور <span class="req">*</span></label>
+        <input type="password" name="password" class="form-control" placeholder="6 أحرف على الأقل" required>
+      </div>
+      <div class="form-group" style="display:none">
+        <label>الصلاحية</label>
+        <select name="role" class="form-control" id="registerRole" onchange="toggleStageField()">
+          <option value="user" selected>خادم</option>
+        </select>
+      </div>
+      <div class="form-group" id="stageFieldWrap">
+        <label>مرحلة الخدمة <span class="req">*</span></label>
+        <select name="stage" class="form-control" id="registerStage">
+          <option value="">-- اختر مرحلتك --</option>
+          <option value="حضانة">حضانة</option>
+          <option value="أولى وتانية ابتدائي">أولى وتانية ابتدائي</option>
+          <option value="تالتة ورابعة ابتدائي">تالتة ورابعة ابتدائي</option>
+          <option value="خامسة وسادسة ابتدائي">خامسة وسادسة ابتدائي</option>
+          <option value="إعدادي">إعدادي</option>
+          <option value="ثانوي">ثانوي</option>
+          <option value="شباب">شباب</option>
+          <option value="خريجين">خريجين</option>
+        </select>
+      </div>
+      <p style="font-size:.78rem;color:var(--slate-light);margin-top:14px;margin-bottom:0;
+                 text-align:center;line-height:1.6">
+        سيتم مراجعة طلبك من المدير قبل تفعيل الحساب
+      </p>
+      <button type="submit" class="btn btn-primary btn-block" id="registerBtn" style="margin-top:12px">
+        إرسال طلب التسجيل
+      </button>
+    </form>
+    <form id="forgotForm" class="auth-form" onsubmit="handleForgot(event)">
+      <div class="alert alert-error" id="forgotError"></div>
+      <div class="alert alert-success" id="forgotSuccess"></div>
+      <p style="font-size:.88rem;color:var(--slate-light);margin-bottom:18px">أدخل بريدك الإلكتروني المسجل وسنساعدك في استعادة حسابك.</p>
+      <div class="form-group">
+        <label>البريد الإلكتروني <span class="req">*</span></label>
+        <input type="email" name="email" class="form-control" placeholder="بريدك الإلكتروني المسجل" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="forgotBtn">إرسال</button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ واجهة التطبيق ═══════════════ -->
+<div id="appShell" class="app-layout" style="display:none">
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="mini-cross"></div>
+      <div><h2>الكنيسة</h2><small>نظام الإدارة</small></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">الرئيسية</div>
+      <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>لوحة التحكم
+      </button>
+
+      <div class="nav-section">الأعضاء</div>
+      <button class="nav-item" data-page="khodam" onclick="navigate('khodam')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>الخدام
+      </button>
+      <button class="nav-item" data-page="makhdomen" onclick="navigate('makhdomen')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>المخدومين
+      </button>
+
+      <div class="nav-section">الحضور</div>
+      <button class="nav-item" data-page="qrscan" onclick="navigate('qrscan')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/>
+          <rect x="3" y="16" width="5" height="5"/>
+          <path d="M21 16h-3v3M21 21v.01M13 3v3h3M13 8h3v2M13 13v2M16 13h2M16 16h3M13 16v2M13 21h3v-3"/>
+        </svg>مسح QR — حضور
+      </button>
+      <button class="nav-item" data-page="attendance" onclick="navigate('attendance')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11l3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>كشف الحضور
+      </button>
+      <button class="nav-item" data-page="absent" onclick="navigate('absent')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>سجل الغياب
+      </button>
+
+      <div class="nav-section">أخرى</div>
+      <button class="nav-item" data-page="birthdays" onclick="navigate('birthdays')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          <path d="M12 2v2M8 4l1 1M16 4l-1 1"/>
+        </svg>أعياد الميلاد
+      </button>
+      <button class="nav-item admin-only" data-page="users" onclick="navigate('users')" style="">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+          <line x1="12" y1="8" x2="20" y2="8"/><line x1="12" y1="12" x2="20" y2="12"/>
+        </svg>إدارة المستخدمين
+      </button>
+      <button class="nav-item user-only" data-page="mydata" onclick="navigate('mydata')" style="display:none">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          <path d="M9 11l3 3 5-5"/>
+        </svg>بياناتي
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">م</div>
+        <div>
+          <div class="user-name" id="sidebarUsername">مستخدم</div>
+          <div class="user-role" id="sidebarRole">—</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm btn-block" onclick="Auth.logout()"
+        style="color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.15)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>تسجيل الخروج
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="toggleSidebar()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div class="topbar-left">
+          <h2 id="pageTitle">لوحة التحكم</h2>
+          <p id="pageDate"></p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-sm btn-outline" onclick="refreshAllData()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>تحديث
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- ── لوحة التحكم ── -->
+      <section id="page-dashboard" class="page-section active">
+
+        <!-- شعار الخدمة + التاريخ + البرنامج -->
+        <div class="dash-top-grid" id="dashTopGrid">
+          <div class="loading" style="grid-column:1/-1"><div class="spinner"></div> جارٍ التحميل…</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon navy">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg></div>
+            <div><div class="stat-value" id="statTotalKhodam">—</div><div class="stat-label">إجمالي الخدام</div></div>
+          </div>
+          <div class="stat-card"><div class="stat-icon gold">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg></div>
+            <div><div class="stat-value" id="statTotalMakhdomen">—</div><div class="stat-label">إجمالي المخدومين</div></div>
+          </div>
+          <div class="stat-card"><div class="stat-icon green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg></div>
+            <div><div class="stat-value" id="statKhodamRate">—</div><div class="stat-label">نسبة حضور الخدام</div></div>
+          </div>
+          <div class="stat-card"><div class="stat-icon green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg></div>
+            <div><div class="stat-value" id="statMakhdomenRate">—</div><div class="stat-label">نسبة حضور المخدومين</div></div>
+          </div>
+          <div class="stat-card"><div class="stat-icon navy">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg></div>
+            <div><div class="stat-value" id="statActiveKhodam">—</div><div class="stat-label">خدام نشطون</div></div>
+          </div>
+          <div class="stat-card"><div class="stat-icon gold">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg></div>
+            <div><div class="stat-value" id="statBirthdays">—</div><div class="stat-label">أعياد ميلاد هذا الشهر</div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="card">
+            <div class="card-header"><h3>أعياد الميلاد هذا الشهر</h3></div>
+            <div class="card-body" id="dashBirthdays"><div class="loading"><div class="spinner"></div> جارٍ التحميل…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>آخر سجلات الحضور</h3></div>
+            <div class="card-body" style="padding:0" id="dashRecentAtt"><div class="loading"><div class="spinner"></div> جارٍ التحميل…</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── الخدام ── -->
+      <section id="page-khodam" class="page-section">
+        <div class="toolbar">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="text" id="khodamSearch" class="search-input" placeholder="بحث بالاسم أو المرحلة…">
+            <select id="khodamStatusFilter" class="form-control" style="width:auto;padding:8px 12px">
+              <option value="">كل الحالات</option>
+              <option value="active">نشط</option>
+              <option value="inactive">غير نشط</option>
+            </select>
+            <select id="khodamStageFilter" class="form-control" style="width:auto;padding:8px 12px">
+              <option value="">كل المراحل</option>
+              <option value="حضانة">حضانة</option>
+              <option value="أولى وتانية ابتدائي">أولى وتانية ابتدائي</option>
+              <option value="تالتة ورابعة ابتدائي">تالتة ورابعة ابتدائي</option>
+              <option value="خامسة وسادسة ابتدائي">خامسة وسادسة ابتدائي</option>
+              <option value="إعدادي">إعدادي</option>
+              <option value="ثانوي">ثانوي</option>
+              <option value="شباب">شباب</option>
+              <option value="خريجين">خريجين</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm admin-only" onclick="printAllQR('khodam')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/>
+                <rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21v.01M16 13h2"/>
+              </svg>
+              طباعة QR الكل
+            </button>
+            <button class="btn btn-gold admin-only" onclick="openAddMember('khodam')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>إضافة خادم
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:center;width:50px">رقم</th>
+                  <th>الاسم</th><th>العنوان</th><th>موبايل</th>
+                  <th>تاريخ الميلاد</th><th>المرحلة</th>
+                  <th>أب الاعتراف</th><th>ملاحظات</th>
+                  <th style="text-align:center">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="khodamTbody">
+                <tr><td colspan="9"><div class="loading"><div class="spinner"></div> جارٍ التحميل…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── المخدومين ── -->
+      <section id="page-makhdomen" class="page-section">
+        <div class="toolbar">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="text" id="makhdomenSearch" class="search-input" placeholder="بحث بالاسم أو المنطقة…">
+            <select id="makhdomenStatusFilter" class="form-control" style="width:auto;padding:8px 12px">
+              <option value="">كل الحالات</option>
+              <option value="active">نشط</option>
+              <option value="inactive">غير نشط</option>
+            </select>
+            <select id="makhdomenStageFilter" class="form-control" style="width:auto;padding:8px 12px">
+              <option value="">كل المراحل</option>
+              <option value="حضانة">حضانة</option>
+              <option value="أولى ابتدائي">أولى ابتدائي</option>
+              <option value="تانية ابتدائي">تانية ابتدائي</option>
+              <option value="تالتة ابتدائي">تالتة ابتدائي</option>
+              <option value="رابعة ابتدائي">رابعة ابتدائي</option>
+              <option value="خامسة ابتدائي">خامسة ابتدائي</option>
+              <option value="سادسة ابتدائي">سادسة ابتدائي</option>
+              <option value="أولى إعدادي">أولى إعدادي</option>
+              <option value="تانية إعدادي">تانية إعدادي</option>
+              <option value="تالتة إعدادي">تالتة إعدادي</option>
+              <option value="أولى ثانوي">أولى ثانوي</option>
+              <option value="تانية ثانوي">تانية ثانوي</option>
+              <option value="تالتة ثانوي">تالتة ثانوي</option>
+              <option value="شباب">شباب</option>
+              <option value="خريجين">خريجين</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm admin-only" onclick="printAllQR('makhdomen')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/>
+                <rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21v.01M16 13h2"/>
+              </svg>
+              طباعة QR الكل
+            </button>
+            <button class="btn btn-gold admin-only" onclick="openAddMember('makhdomen')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>إضافة مخدوم
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:center;width:50px">رقم</th>
+                  <th>الاسم</th><th>المنطقة</th><th>العنوان</th>
+                  <th>تليفون الأب</th><th>تليفون الأم</th><th>تليفون المخدوم</th>
+                  <th>تاريخ الميلاد</th><th>المرحلة</th>
+                  <th>أب الاعتراف</th><th>ملاحظات</th>
+                  <th style="text-align:center">الحضور</th>
+                  <th style="text-align:center">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="makhdomenTbody">
+                <tr><td colspan="13"><div class="loading"><div class="spinner"></div> جارٍ التحميل…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── مسح QR ── -->
+      <section id="page-qrscan" class="page-section">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+
+          <!-- جانب المسح -->
+          <div class="card">
+            <div class="card-header">
+              <h3>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-left:6px">
+                  <rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/>
+                  <rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21v.01M13 3v3h3M13 8h3v2M13 13v2M16 13h2M16 16h3M13 16v2M13 21h3v-3"/>
+                </svg>
+                مسح رمز QR
+              </h3>
+            </div>
+            <div class="card-body">
+              <!-- تاريخ الحضور -->
+              <div class="form-group" style="margin-bottom:16px">
+                <label>تاريخ الحضور</label>
+                <input type="date" id="scanDate" class="form-control">
+              </div>
+
+              <!-- منطقة الكاميرا -->
+              <div id="scannerBox" style="display:none;margin-bottom:16px">
+                <div id="qrReader" style="border-radius:var(--radius);overflow:hidden;border:2px solid var(--gold)"></div>
+              </div>
+
+              <div style="display:flex;gap:10px;margin-bottom:16px">
+                <button id="startScanBtn" class="btn btn-primary" style="flex:1;justify-content:center" onclick="startQrScan()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                  </svg>
+                  فتح الكاميرا
+                </button>
+                <button id="stopScanBtn" class="btn btn-danger" style="flex:1;justify-content:center;display:none" onclick="stopQrScan()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  </svg>
+                  إيقاف
+                </button>
+              </div>
+
+              <!-- نتيجة المسح -->
+              <div id="scanResult" style="display:none"></div>
+            </div>
+          </div>
+
+          <!-- إرشادات -->
+          <div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-body">
+                <h4 style="font-family:var(--font-display);color:var(--navy);margin-bottom:14px;font-size:1rem">
+                  كيفية الاستخدام
+                </h4>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="how-step">
+                    <div class="step-num">١</div>
+                    <div>اختر تاريخ الحضور من الحقل أعلاه</div>
+                  </div>
+                  <div class="how-step">
+                    <div class="step-num">٢</div>
+                    <div>اضغط "فتح الكاميرا" واتجه نحو رمز QR الخاص بالعضو</div>
+                  </div>
+                  <div class="how-step">
+                    <div class="step-num">٣</div>
+                    <div>اختر نوع الحضور: قداس فقط / خدمة فقط / قداس + خدمة</div>
+                  </div>
+                  <div class="how-step">
+                    <div class="step-num">٤</div>
+                    <div>يُسجَّل الحضور فوراً ويمكن مسح عضو آخر</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h3>الحضور المسجّل اليوم</h3></div>
+              <div class="card-body" style="padding:0" id="todayAttList">
+                <div class="loading"><div class="spinner"></div> جارٍ التحميل…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── كشف الحضور ── -->
+      <section id="page-attendance" class="page-section">
+        <div class="section-tabs" data-group="attType">
+          <button class="section-tab active" data-tab="khodamAtt">الخدام</button>
+          <button class="section-tab" data-tab="makhdomenAtt">المخدومين</button>
+        </div>
+
+        <div data-tab-content="khodamAtt" data-group="attType">
+          <div class="section-tabs" data-group="khodamAttMode" style="margin-bottom:16px">
+            <button class="section-tab active" data-tab="kAtt_weekly">تسجيل أسبوعي</button>
+            <button class="section-tab" data-tab="kAtt_monthly">عرض شهري</button>
+          </div>
+          <div data-tab-content="kAtt_weekly" data-group="khodamAttMode">
+            <div class="filters-bar" style="margin-bottom:16px">
+              <div class="filter-group"><label>اختر التاريخ</label><input type="date" id="khodamAttDate"></div>
+              <div id="khodamWeekLabel" style="align-self:flex-end;font-size:.85rem;color:var(--slate-light);font-weight:600"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>كشف حضور الخدام الأسبوعي</h3></div>
+              <div class="card-body">
+                <div id="khodamAttGrid"><div class="empty-state"><p>اختر تاريخاً لتحميل كشف الحضور</p></div></div>
+                <div style="margin-top:16px;text-align:left">
+                  <button class="btn btn-primary" id="khodamSaveAttBtn" onclick="saveWeeklyAttendance('khodam')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>حفظ الحضور
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-tab-content="kAtt_monthly" data-group="khodamAttMode" style="display:none">
+            <div class="filters-bar">
+              <div class="filter-group"><label>اختر الشهر</label><input type="month" id="khodamMonthPicker"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>سجل حضور الخدام الشهري</h3></div>
+              <div class="card-body" id="khodamMonthlyTable"><div class="empty-state"><p>اختر شهراً لعرض سجل الحضور</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div data-tab-content="makhdomenAtt" data-group="attType" style="display:none">
+          <div class="section-tabs" data-group="makhdomenAttMode" style="margin-bottom:16px">
+            <button class="section-tab active" data-tab="mAtt_weekly">تسجيل أسبوعي</button>
+            <button class="section-tab" data-tab="mAtt_monthly">عرض شهري</button>
+          </div>
+          <div data-tab-content="mAtt_weekly" data-group="makhdomenAttMode">
+            <div class="filters-bar" style="margin-bottom:16px">
+              <div class="filter-group"><label>اختر التاريخ</label><input type="date" id="makhdomenAttDate"></div>
+              <div id="makhdomenWeekLabel" style="align-self:flex-end;font-size:.85rem;color:var(--slate-light);font-weight:600"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>كشف حضور المخدومين الأسبوعي</h3></div>
+              <div class="card-body">
+                <div id="makhdomenAttGrid"><div class="empty-state"><p>اختر تاريخاً لتحميل كشف الحضور</p></div></div>
+                <div style="margin-top:16px;text-align:left">
+                  <button class="btn btn-primary" id="makhdomenSaveAttBtn" onclick="saveWeeklyAttendance('makhdomen')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>حفظ الحضور
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-tab-content="mAtt_monthly" data-group="makhdomenAttMode" style="display:none">
+            <div class="filters-bar">
+              <div class="filter-group"><label>اختر الشهر</label><input type="month" id="makhdomenMonthPicker"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>سجل حضور المخدومين الشهري</h3></div>
+              <div class="card-body" id="makhdomenMonthlyTable"><div class="empty-state"><p>اختر شهراً لعرض سجل الحضور</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── سجل الغياب ── -->
+      <section id="page-absent" class="page-section">
+        <div class="filters-bar" style="margin-bottom:16px">
+          <div class="filter-group">
+            <label>نوع العضو</label>
+            <select id="absentTypeFilter" class="form-control" style="padding:8px 12px">
+              <option value="khodam">الخدام</option>
+              <option value="makhdomen">المخدومين</option>
+            </select>
+          </div>
+        </div>
+        <div class="section-tabs" data-group="absent">
+          <button class="section-tab active" data-tab="absentWeekly">حسب الأسبوع</button>
+          <button class="section-tab" data-tab="absentMonthly">حسب الشهر</button>
+        </div>
+        <div data-tab-content="absentWeekly" data-group="absent">
+          <div class="filters-bar">
+            <div class="filter-group"><label>اختر الأسبوع</label><input type="date" id="absentWeekPicker"></div>
+            <div id="absentWeekLabel" style="align-self:flex-end;font-size:.85rem;color:var(--slate-light);font-weight:600"></div>
+          </div>
+        </div>
+        <div data-tab-content="absentMonthly" data-group="absent" style="display:none">
+          <div class="filters-bar">
+            <div class="filter-group"><label>اختر الشهر</label><input type="month" id="absentMonthPicker"></div>
+            <div id="absentMonthLabel" style="align-self:flex-end;font-size:.85rem;color:var(--slate-light);font-weight:600"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-header"><h3>سجل الغياب والأعذار</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:center;width:50px">رقم</th>
+                  <th>الاسم</th><th>النوع</th><th>التاريخ</th>
+                  <th style="text-align:center">قداس</th>
+                  <th style="text-align:center">خدمة</th>
+                </tr>
+              </thead>
+              <tbody id="absentTbody">
+                <tr><td colspan="6"><div class="empty-state"><p>اختر تاريخاً أو شهراً لعرض السجلات</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── أعياد الميلاد ── -->
+      <section id="page-birthdays" class="page-section">
+        <div class="filters-bar" style="margin-bottom:20px">
+          <div class="filter-group"><label>الشهر</label><input type="month" id="birthdayMonthPicker"></div>
+          <div class="filter-group">
+            <label>النوع</label>
+            <select id="birthdayTypeFilter" class="form-control" style="padding:8px 12px">
+              <option value="">الكل</option>
+              <option value="khodam">الخدام</option>
+              <option value="makhdomen">المخدومين</option>
+            </select>
+          </div>
+          <div style="align-self:flex-end;font-size:.85rem;color:var(--slate-light);font-weight:600" id="birthdayCount"></div>
+        </div>
+        <div class="birthday-grid" id="birthdayGrid">
+          <div class="empty-state" style="grid-column:1/-1"><p>اختر شهراً لعرض أعياد الميلاد</p></div>
+        </div>
+      </section>
+
+
+      <!-- ── إدارة المستخدمين ── -->
+      <section id="page-users" class="page-section">
+        <div id="usersPageContent">
+          <div class="loading"><div class="spinner"></div> جارٍ التحميل…</div>
+        </div>
+      </section>
+
+      <!-- ── بياناتي ── -->
+      <section id="page-mydata" class="page-section">
+        <div id="myDataContent">
+          <div class="loading"><div class="spinner"></div> جارٍ التحميل…</div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════ النوافذ المنبثقة ═══════════════ -->
+
+<!-- نافذة تعديل البرنامج -->
+<div class="modal-overlay" id="programModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>برنامج يوم الخدمة</h3>
+      <button class="modal-close" onclick="closeModal('programModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- تاريخ البرنامج -->
+      <div class="form-group" style="margin-bottom:16px">
+        <label>تاريخ البرنامج <span class="req">*</span></label>
+        <input type="date" id="programDateInput" class="form-control">
+      </div>
+      <p style="font-size:.82rem;color:var(--slate-light);margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        البرنامج يُحفظ في Google Sheets ويظهر لجميع المستخدمين
+      </p>
+      <!-- بنود البرنامج -->
+      <div id="programEditorList" style="max-height:320px;overflow-y:auto;margin-bottom:12px"></div>
+      <button class="btn btn-outline btn-sm" onclick="addProgramRow()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        إضافة بند
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('programModal')">إلغاء</button>
+      <button class="btn btn-primary" id="saveProgramBtn" onclick="saveProgramChanges()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        حفظ البرنامج
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة QR فردي -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <h3>رمز QR</h3>
+      <button class="modal-close" onclick="closeModal('qrModal')">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div style="margin-bottom:16px">
+        <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--navy);font-weight:700" id="qrMemberName"></div>
+        <div style="font-size:.8rem;color:var(--gold);font-weight:700;margin-top:3px" id="qrMemberType"></div>
+        <div style="font-size:.78rem;color:var(--slate-light);margin-top:2px" id="qrMemberStage"></div>
+      </div>
+      <div id="qrContainer" style="display:inline-block;padding:16px;background:white;
+           border-radius:12px;box-shadow:var(--shadow);margin-bottom:20px"></div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-outline btn-sm" onclick="downloadQR(currentQrType, currentQrId)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          تحميل
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="printQR()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          طباعة
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة QR جماعي -->
+<div class="modal-overlay" id="bulkQrModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3 id="bulkQrTitle">رموز QR</h3>
+      <button class="modal-close" onclick="closeModal('bulkQrModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="bulkQrGrid" class="bulk-qr-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('bulkQrModal')">إغلاق</button>
+      <button class="btn btn-primary" onclick="printBulkQR()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        طباعة الكل
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة الخدام -->
+<div class="modal-overlay" id="khodamModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="khodamModalTitle">إضافة خادم</h3><button class="modal-close" onclick="closeModal('khodamModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="khodamFormId">
+      <form id="khodamForm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>الاسم الكامل <span class="req">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="أدخل الاسم الكامل" required>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>العنوان</label>
+            <input type="text" name="address" class="form-control" placeholder="العنوان بالتفصيل">
+          </div>
+          <div class="form-group"><label>موبايل</label><input type="tel" name="phone" class="form-control" placeholder="01xxxxxxxxx"></div>
+          <div class="form-group"><label>تاريخ الميلاد</label><input type="date" name="birthDate" class="form-control"></div>
+          <div class="form-group">
+            <label>المرحلة</label>
+            <select name="stage" class="form-control">
+              <option value="">-- اختر المرحلة --</option>
+              <option value="حضانة">حضانة</option>
+              <option value="أولى وتانية ابتدائي">أولى وتانية ابتدائي</option>
+              <option value="تالتة ورابعة ابتدائي">تالتة ورابعة ابتدائي</option>
+              <option value="خامسة وسادسة ابتدائي">خامسة وسادسة ابتدائي</option>
+              <option value="إعدادي">إعدادي</option>
+              <option value="ثانوي">ثانوي</option>
+              <option value="شباب">شباب</option>
+              <option value="خريجين">خريجين</option>
+            </select>
+          </div>
+          <div class="form-group"><label>أب الاعتراف</label><input type="text" name="confessionFather" class="form-control" placeholder="اسم أب الاعتراف"></div>
+          <div class="form-group" style="grid-column:1/-1"><label>ملاحظات</label><textarea name="notes" class="form-control" placeholder="أي ملاحظات…"></textarea></div>
+          <div class="form-group"><label>الحالة</label><select name="status" class="form-control"><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('khodamModal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveMember('khodam')">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة المخدومين -->
+<div class="modal-overlay" id="makhdomenModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><h3 id="makhdomenModalTitle">إضافة مخدوم</h3><button class="modal-close" onclick="closeModal('makhdomenModal')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="makhdomenFormId">
+      <form id="makhdomenForm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group" style="grid-column:1/-1"><label>الاسم الكامل <span class="req">*</span></label><input type="text" name="name" class="form-control" placeholder="أدخل الاسم الكامل" required></div>
+          <div class="form-group"><label>المنطقة</label><input type="text" name="area" class="form-control" placeholder="المنطقة أو الحي"></div>
+          <div class="form-group"><label>العنوان</label><input type="text" name="address" class="form-control" placeholder="العنوان بالتفصيل"></div>
+          <div class="form-group"><label>تليفون الأب</label><input type="tel" name="fatherPhone" class="form-control" placeholder="01xxxxxxxxx"></div>
+          <div class="form-group"><label>تليفون الأم</label><input type="tel" name="motherPhone" class="form-control" placeholder="01xxxxxxxxx"></div>
+          <div class="form-group"><label>تليفون المخدوم</label><input type="tel" name="phone" class="form-control" placeholder="01xxxxxxxxx"></div>
+          <div class="form-group"><label>تاريخ الميلاد</label><input type="date" name="birthDate" class="form-control"></div>
+          <div class="form-group">
+            <label>المرحلة</label>
+            <select name="stage" class="form-control">
+              <option value="">-- اختر المرحلة --</option>
+              <option value="حضانة">حضانة</option>
+              <option value="أولى ابتدائي">أولى ابتدائي</option>
+              <option value="تانية ابتدائي">تانية ابتدائي</option>
+              <option value="تالتة ابتدائي">تالتة ابتدائي</option>
+              <option value="رابعة ابتدائي">رابعة ابتدائي</option>
+              <option value="خامسة ابتدائي">خامسة ابتدائي</option>
+              <option value="سادسة ابتدائي">سادسة ابتدائي</option>
+              <option value="أولى إعدادي">أولى إعدادي</option>
+              <option value="تانية إعدادي">تانية إعدادي</option>
+              <option value="تالتة إعدادي">تالتة إعدادي</option>
+              <option value="أولى ثانوي">أولى ثانوي</option>
+              <option value="تانية ثانوي">تانية ثانوي</option>
+              <option value="تالتة ثانوي">تالتة ثانوي</option>
+              <option value="شباب">شباب</option>
+              <option value="خريجين">خريجين</option>
+            </select>
+          </div>
+          <div class="form-group"><label>أب الاعتراف</label><input type="text" name="confessionFather" class="form-control" placeholder="اسم أب الاعتراف"></div>
+          <div class="form-group"><label>غير متواجد</label><select name="absent" class="form-control"><option value="no">متواجد</option><option value="yes">غير متواجد</option></select></div>
+          <div class="form-group" style="grid-column:1/-1"><label>ملاحظات</label><textarea name="notes" class="form-control" placeholder="أي ملاحظات…"></textarea></div>
+          <div class="form-group"><label>الحالة</label><select name="status" class="form-control"><option value="active">نشط</option><option value="inactive">غير نشط</option></select></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('makhdomenModal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveMember('makhdomen')">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة عرض التفاصيل -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><h3 id="viewModalTitle">تفاصيل العضو</h3><button class="modal-close" onclick="closeModal('viewModal')">×</button></div>
+    <div class="modal-body" id="viewModalBody"></div>
+  </div>
+</div>
+
+<!-- نافذة الموافقة على مستخدم -->
+<div class="modal-overlay" id="approveModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h3>الموافقة على طلب التسجيل</h3>
+      <button class="modal-close" onclick="closeModal('approveModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="approveUserId">
+      <div style="background:var(--sage);border-radius:var(--radius);padding:12px 16px;margin-bottom:18px;
+                  display:flex;align-items:center;gap:10px">
+        <div class="user-avatar" style="width:36px;height:36px;font-size:.85rem;background:var(--warning);flex-shrink:0">؟</div>
+        <div>
+          <div style="font-weight:700;color:var(--navy)" id="approveUsername"></div>
+          <div style="font-size:.78rem;color:var(--slate-light)">طلب تسجيل جديد</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>الصلاحية</label>
+        <select id="approveRole" class="form-control" onchange="toggleApproveStage()">
+          <option value="user">خادم</option>
+          <option value="admin">مدير</option>
+        </select>
+      </div>
+      <div class="form-group" id="approveStageWrap">
+        <label>مرحلة الخدمة <span class="req">*</span></label>
+        <select id="approveStage" class="form-control">
+          <option value="">-- اختر المرحلة --</option>
+          <option value="حضانة">حضانة</option>
+          <option value="أولى وتانية ابتدائي">أولى وتانية ابتدائي</option>
+          <option value="تالتة ورابعة ابتدائي">تالتة ورابعة ابتدائي</option>
+          <option value="خامسة وسادسة ابتدائي">خامسة وسادسة ابتدائي</option>
+          <option value="إعدادي">إعدادي</option>
+          <option value="ثانوي">ثانوي</option>
+          <option value="شباب">شباب</option>
+          <option value="خريجين">خريجين</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('approveModal')">إلغاء</button>
+      <button class="btn btn-primary" id="confirmApproveBtn" onclick="confirmApprove()"
+        style="background:var(--success)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        تأكيد الموافقة
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة إضافة/تعديل مستخدم -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h3 id="userModalTitle">إضافة مستخدم</h3>
+      <button class="modal-close" onclick="closeModal('userModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="userFormMode" value="add">
+      <input type="hidden" id="userFormId">
+      <form id="userForm">
+        <div class="form-group">
+          <label>اسم المستخدم <span class="req">*</span></label>
+          <input type="text" id="userUsername" class="form-control" placeholder="اسم المستخدم">
+        </div>
+        <div class="form-group">
+          <label>البريد الإلكتروني <span class="req">*</span></label>
+          <input type="email" id="userEmail" class="form-control" placeholder="البريد الإلكتروني">
+        </div>
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input type="password" id="userNewPassword" class="form-control" placeholder="كلمة المرور">
+        </div>
+        <div class="form-group">
+          <label>الصلاحية</label>
+          <select id="userRole" class="form-control" onchange="toggleUserStage()">
+            <option value="user">خادم</option>
+            <option value="admin">مدير</option>
+          </select>
+        </div>
+        <div class="form-group" id="userStageWrap">
+          <label>مرحلة الخدمة <span class="req">*</span></label>
+          <select id="userStage" class="form-control">
+            <option value="">-- اختر المرحلة --</option>
+            <option value="حضانة">حضانة</option>
+            <option value="أولى وتانية ابتدائي">أولى وتانية ابتدائي</option>
+            <option value="تالتة ورابعة ابتدائي">تالتة ورابعة ابتدائي</option>
+            <option value="خامسة وسادسة ابتدائي">خامسة وسادسة ابتدائي</option>
+            <option value="إعدادي">إعدادي</option>
+            <option value="ثانوي">ثانوي</option>
+            <option value="شباب">شباب</option>
+            <option value="خريجين">خريجين</option>
+          </select>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('userModal')">إلغاء</button>
+      <button class="btn btn-primary" id="saveUserBtn" onclick="saveUser()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/core.js"></script>
+<script src="js/members.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/qr.js"></script>
+<script src="js/users.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
