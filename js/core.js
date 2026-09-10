@@ -6,8 +6,8 @@
 // ── CONFIG ────────────────────────────────────────────────────────
 // Both values must match exactly what's in google-apps-script.js
 const CONFIG = {
-  API_URL:    'YOUR_GOOGLE_APPS_SCRIPT_URL',     // ← paste deployed URL
-  API_SECRET: 'CHANGE_THIS_TO_A_LONG_RANDOM_STRING_LIKE_x9kP2mQr7vLw4nZj', // ← same as in script
+    API_URL:    'https://script.google.com/macros/s/AKfycbxbTI4MoGrOsLtcVulaugKKMs4aQwlH6T1E9Xdk-cJ_VB6Gg4RaX40G_XM1CCtOK6bh/exec',     // ← paste deployed URL
+    API_SECRET: 'XvNm0cgELmBvqqsKs93s', // ← same as in script
   APP_NAME:   'Church Management',
 };
 
