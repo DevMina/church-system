@@ -39,7 +39,9 @@ const API = {
 
       const res = await fetch(CONFIG.API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Using text/plain avoids CORS preflight (OPTIONS) which Apps Script doesn't support
+        // Apps Script handles the JSON body correctly regardless of Content-Type
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000),
       });

@@ -418,6 +418,13 @@ function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Handle CORS preflight OPTIONS requests
+function doOptions(e) {
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
 function respond(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
