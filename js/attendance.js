@@ -18,6 +18,9 @@ async function loadAllAttendance() {
     if (kaResult.success) State.khodamAttendance = kaResult.data || [];
   }
 
+  // تعيين علامة التحميل
+  State._attendanceLoaded = true;
+
   // حضور المخدومين — حسب المرحلة
   if (user?.role === 'admin') {
     // المدير: يجلب من كل التابات المجمّعة الثمانية

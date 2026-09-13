@@ -263,7 +263,7 @@ async function registerQrAttendance(memberId, type, attType, dateVal, btn) {
     b.style.opacity = '.5';
   });
 
-  const payload = { memberId, memberName: member.name, date: dateVal, week: weekStart, mass, khedma };
+  const payload = { memberId, memberName: member.name, stage: member.stage || '', date: dateVal, week: weekStart, mass, khedma };
 
   let result;
   if (existing) {

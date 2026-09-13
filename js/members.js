@@ -2,6 +2,9 @@
 //  وحدة الأعضاء — الخدام والمخدومين
 // ================================================================
 
+// مساعد للتحقق من الصلاحية
+const isAdmin = () => State.user?.role === 'admin';
+
 // مراحل الخدام
 const KHODAM_STAGES = [
   'حضانة',
@@ -80,12 +83,13 @@ function renderMembersTable(type) {
             <button class="btn-icon" title="عرض" onclick="viewMember('khodam','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
+            ${State.user?.role === 'admin' ? `
             <button class="btn-icon" title="تعديل" onclick="editMember('khodam','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
             <button class="btn-icon danger" title="حذف" onclick="deleteMember('khodam','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-            </button>
+            </button>` : ''}
             <button class="btn-icon" title="رمز QR" onclick="showMemberQR('khodam','${m.id}')" style="color:var(--gold)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21v.01M16 13h2"/></svg>
             </button>
@@ -121,12 +125,13 @@ function renderMembersTable(type) {
             <button class="btn-icon" title="عرض" onclick="viewMember('makhdomen','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
+            ${State.user?.role === 'admin' ? `
             <button class="btn-icon" title="تعديل" onclick="editMember('makhdomen','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
             <button class="btn-icon danger" title="حذف" onclick="deleteMember('makhdomen','${m.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-            </button>
+            </button>` : ''}
             <button class="btn-icon" title="رمز QR" onclick="showMemberQR('makhdomen','${m.id}')" style="color:var(--gold)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21v.01M16 13h2"/></svg>
             </button>
@@ -141,6 +146,9 @@ function openAddMember(type) {
   document.getElementById(`${type}FormId`).value = '';
   document.getElementById(`${type}ModalTitle`).textContent =
     type === 'khodam' ? 'إضافة خادم' : 'إضافة مخدوم';
+  // Set max date for birthDate to today
+  const bdEl = document.querySelector(`#${type}Form [name="birthDate"]`);
+  if (bdEl) bdEl.max = new Date().toISOString().split('T')[0];
 
   const stageEl = document.querySelector(`#${type}Form [name="stage"]`);
   if (stageEl) {
@@ -164,6 +172,9 @@ function editMember(type, id) {
   document.getElementById(`${type}ModalTitle`).textContent =
     type === 'khodam' ? 'تعديل بيانات الخادم' : 'تعديل بيانات المخدوم';
   document.getElementById(`${type}FormId`).value = member.id;
+  // Set max date for birthDate
+  const bdEl = document.querySelector(`#${type}Form [name="birthDate"]`);
+  if (bdEl) bdEl.max = new Date().toISOString().split('T')[0];
   setFormData(`${type}Form`, member);
   openModal(`${type}Modal`);
 }

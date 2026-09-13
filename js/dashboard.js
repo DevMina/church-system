@@ -63,9 +63,10 @@ async function loadProgramFromSheets() {
 
 // ── رندر لوحة التحكم ─────────────────────────────────────────────
 async function renderDashboardTop() {
-  const today  = new Date();
-  const verse  = getSavedVerse();
-  const program = await loadProgramFromSheets() || { date: '', items: [] };
+  const today = new Date();
+  const verse = getSavedVerse();
+  // Show verse + date immediately (no API needed), then load program async
+  const program = { date: '', items: [] }; // shown first
 
   const gregStr = today.toLocaleDateString('ar-EG', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -124,16 +125,32 @@ async function renderDashboardTop() {
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
           برنامج يوم الخدمة
-          ${program.date ? `<span id="programDateLabel" style="font-size:.72rem;opacity:.75;margin-right:4px">${DateUtil.formatDate(program.date)}</span>` : '<span id="programDateLabel"></span>'}
+          <span id="programDateLabel"></span>
         </div>
-        <button onclick="openProgramEditor()" style="background:rgba(255,255,255,.2);border:none;
+        ${State.user?.role === 'admin' ? `<button onclick="openProgramEditor()" style="background:rgba(255,255,255,.2);border:none;
           color:white;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:var(--font-body);
-          font-size:.75rem;font-weight:700">تعديل</button>
+          font-size:.75rem;font-weight:700">تعديل</button>` : ''}
       </div>
       <div class="dash-banner-body" id="programBody">
-        ${renderProgramBody(program.items || [])}
+        <div style="text-align:center;color:var(--slate-light);font-size:.82rem;padding:8px">
+          <div class="spinner" style="width:18px;height:18px;margin:0 auto 6px"></div>
+          جارٍ التحميل…
+        </div>
       </div>
     </div>`;
+
+  // Load program async without blocking the render
+  loadProgramFromSheets().then(prog => {
+    if (!prog) return;
+    const body  = document.getElementById('programBody');
+    const label = document.getElementById('programDateLabel');
+    if (body)  body.innerHTML  = renderProgramBody(prog.items || []);
+    if (label) label.textContent = prog.date ? DateUtil.formatDate(prog.date) : '';
+    _programCache = prog;
+  }).catch(() => {
+    const body = document.getElementById('programBody');
+    if (body) body.innerHTML = '<div class="program-empty">لا يمكن تحميل البرنامج</div>';
+  });
 }
 
 function renderProgramBody(program) {

@@ -13,12 +13,13 @@ const CONFIG = {
 
 // ── State ─────────────────────────────────────────────────────────
 const State = {
-  user: null,
-  sessionToken: null,
-  khodam: [],
-  makhdomen: [],
-  khodamAttendance: [],
+  user:                null,
+  sessionToken:        null,
+  khodam:              [],
+  makhdomen:           [],
+  khodamAttendance:    [],
   makhdomenAttendance: [],
+  _attendanceLoaded:   false,
 };
 
 // ── API ───────────────────────────────────────────────────────────
@@ -38,7 +39,9 @@ const API = {
 
       const res = await fetch(CONFIG.API_URL, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
       });
 
       const data = await res.json();
@@ -152,6 +155,7 @@ const Auth = {
   _clear() {
     State.user = null;
     State.sessionToken = null;
+    State._attendanceLoaded = false;
     sessionStorage.removeItem('cms_session');
   },
 };

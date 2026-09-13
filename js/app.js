@@ -124,10 +124,29 @@ async function navigate(page) {
     case 'dashboard': updateDashboardStats(); break;
     case 'khodam':    renderMembersTable('khodam'); break;
     case 'makhdomen': renderMembersTable('makhdomen'); break;
-    case 'attendance': break; // user selects date to load
-    case 'absent':     break; // user selects date/month to load
+    case 'attendance':
+      if (!State._attendanceLoaded) {
+        toast('جارٍ تحميل بيانات الحضور…', 'info');
+        await loadAllAttendance();
+        State._attendanceLoaded = true;
+      }
+      break;
+    case 'absent':
+      if (!State._attendanceLoaded) {
+        toast('جارٍ تحميل بيانات الحضور…', 'info');
+        await loadAllAttendance();
+        State._attendanceLoaded = true;
+      }
+      break;
     case 'birthdays':  renderBirthdays(); break;
-    case 'qrscan': initQrScanPage(); renderTodayAttendance(); break;
+    case 'qrscan':
+      if (!State._attendanceLoaded) {
+        await loadAllAttendance();
+        State._attendanceLoaded = true;
+      }
+      initQrScanPage();
+      renderTodayAttendance();
+      break;
     case 'mydata': renderMyData(); break; // async — intentionally not awaited in navigate
     case 'users': loadUsersPage(); break;
   }
@@ -147,7 +166,12 @@ function closeSidebar() {
 // ── تحديث البيانات ───────────────────────────────────────────────
 async function refreshAllData() {
   toast('جارٍ التحديث…', 'info');
-  await Promise.all([loadAllMembers(), loadAllAttendance()]);
+  State._attendanceLoaded = false;
+  const activePage = document.querySelector('.page-section.active')?.id?.replace('page-','');
+  const needsAtt   = ['attendance','absent'].includes(activePage);
+  const loads      = [loadAllMembers()];
+  if (needsAtt) loads.push(loadAllAttendance().then(() => { State._attendanceLoaded = true; }));
+  await Promise.all(loads);
 
   // إعادة رندر الصفحة الحالية
   const activePage = document.querySelector('.page-section.active')?.id?.replace('page-','');
@@ -155,8 +179,20 @@ async function refreshAllData() {
     case 'dashboard':  updateDashboardStats(); break;
     case 'khodam':     renderMembersTable('khodam'); break;
     case 'makhdomen':  renderMembersTable('makhdomen'); break;
-    case 'attendance': break; // user selects date to load
-    case 'absent':     break; // user selects date/month to load
+    case 'attendance':
+      if (!State._attendanceLoaded) {
+        toast('جارٍ تحميل بيانات الحضور…', 'info');
+        await loadAllAttendance();
+        State._attendanceLoaded = true;
+      }
+      break;
+    case 'absent':
+      if (!State._attendanceLoaded) {
+        toast('جارٍ تحميل بيانات الحضور…', 'info');
+        await loadAllAttendance();
+        State._attendanceLoaded = true;
+      }
+      break;
     case 'birthdays':  renderBirthdays(); break;
     case 'mydata':     renderMyData(); break;
     case 'attendance': break; // user re-selects date
@@ -246,10 +282,12 @@ async function bootApp() {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  toast('جارٍ تحميل البيانات…', 'info');
-  await Promise.all([loadAllMembers(), loadAllAttendance()]);
+  toast('جارٍ تحميل البيانات… قد يستغرق أول تحميل بضع ثوانٍ', 'info');
 
-  // عرض الصفحة الصحيحة بعد تحميل البيانات
+  // تحميل بيانات الأعضاء فقط — الحضور يُحمَّل عند الحاجة
+  await loadAllMembers();
+
+  // عرض الصفحة الصحيحة فوراً بعد تحميل البيانات
   if (user.role !== 'admin') {
     showPage('mydata');
     await renderMyData();
