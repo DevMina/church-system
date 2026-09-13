@@ -167,7 +167,7 @@ function renderProgramBody(program) {
 }
 
 function openProgramEditor() {
-  const program = await loadProgramFromSheets() || { date: '', items: [] };
+  const program = _programCache || { date: '', items: [] };
   document.getElementById('programEditorList').innerHTML = program.map((p, i) => `
     <div class="prog-edit-row" id="progrow_${i}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <input type="text" value="${p.time}" placeholder="9:00" class="form-control"

@@ -173,8 +173,7 @@ async function refreshAllData() {
   if (needsAtt) loads.push(loadAllAttendance().then(() => { State._attendanceLoaded = true; }));
   await Promise.all(loads);
 
-  // إعادة رندر الصفحة الحالية
-  const activePage = document.querySelector('.page-section.active')?.id?.replace('page-','');
+  // إعادة رندر الصفحة الحالية (reuse activePage already declared above)
   switch (activePage) {
     case 'dashboard':  updateDashboardStats(); break;
     case 'khodam':     renderMembersTable('khodam'); break;

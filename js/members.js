@@ -275,7 +275,7 @@ async function saveMember(type) {
   }
 }
 
-function deleteMember(type, id) {
+async function deleteMember(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
   const member = list.find(m => m.id === id);
   confirmAction(`هل تريد حذف "${member?.name || ''}"؟ لا يمكن التراجع عن هذا الإجراء.`, async () => {
