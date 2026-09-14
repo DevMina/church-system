@@ -166,27 +166,6 @@ function renderProgramBody(program) {
   </div>`;
 }
 
-function openProgramEditor() {
-  const program = _programCache || { date: '', items: [] };
-  document.getElementById('programEditorList').innerHTML = program.map((p, i) => `
-    <div class="prog-edit-row" id="progrow_${i}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-      <input type="text" value="${p.time}" placeholder="9:00" class="form-control"
-        style="width:80px;padding:7px 10px;font-size:.85rem;direction:ltr;text-align:center"
-        onchange="updateProgramRow(${i},'time',this.value)">
-      <input type="text" value="${p.desc}" placeholder="وصف البند" class="form-control"
-        style="flex:1;padding:7px 10px;font-size:.85rem"
-        onchange="updateProgramRow(${i},'desc',this.value)">
-      <button onclick="removeProgramRow(${i})" class="btn-icon danger">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>`).join('') || `<div style="color:var(--slate-light);font-size:.88rem;padding:8px 0">لا يوجد بنود — اضغط "إضافة" لبدء البرنامج</div>`;
-  openModal('programModal');
-}
-
-let _editProgram = [];
-let _editProgramDate = '';
 
 function openProgramEditor() {
   const cache = _programCache || { date: '', items: [] };

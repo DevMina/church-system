@@ -74,7 +74,7 @@ function setupAllSheets() {
   const data = usersSheet.getDataRange().getValues();
   if (data.length < 2) {
     Logger.log('لا يوجد مستخدمون — يمكنك إضافة مدير يدوياً من تاب Users');
-    Logger.log('الأعمدة: id | username | password | email | role | stage | status | createdAt');
+    Logger.log('الأعمدة: id | username | password | salt | email | role | stage | status | createdAt');
     Logger.log('مثال:    admin1 | admin | admin123 | admin@church.com | admin |  | active | ' + new Date().toISOString());
   }
 
@@ -98,6 +98,40 @@ function setupAllSheets() {
     'افتح تاب Users وأضف مستخدم مدير يدوياً،\n' +
     'أو سجّل من الموقع وعدّل role=admin وstatus=active في الشيت.'
   );
+}
+
+// ── أداة ترحيل كلمات المرور القديمة (شغّلها مرة واحدة) ────────────
+// لو كان عندك مستخدمين قبل تحديث التشفير، شغّل هذه الدالة لتشفير كلمات مرورهم
+function migratePasswords() {
+  const sheet   = getSheet('Users');
+  const data    = sheet.getDataRange().getValues();
+  if (data.length < 2) { Logger.log('لا يوجد مستخدمون'); return; }
+  const headers = data[0];
+  const pwdCol  = headers.indexOf('password');
+  const saltCol = headers.indexOf('salt');
+
+  if (saltCol < 0) {
+    Logger.log('أضف عمود salt أولاً عبر تشغيل setupAllSheets');
+    return;
+  }
+
+  let migrated = 0;
+  for (let i = 1; i < data.length; i++) {
+    const currentPwd  = String(data[i][pwdCol]);
+    const currentSalt = String(data[i][saltCol]);
+
+    // If salt is empty, the password is plain text — hash it
+    if (!currentSalt || currentSalt === 'undefined') {
+      const newSalt   = generateSalt();
+      const newHashed = hashPassword(currentPwd, newSalt);
+      sheet.getRange(i + 1, pwdCol  + 1).setValue(newHashed);
+      sheet.getRange(i + 1, saltCol + 1).setValue(newSalt);
+      migrated++;
+      Logger.log('Migrated: ' + data[i][headers.indexOf('username')]);
+    }
+  }
+  SpreadsheetApp.flush();
+  SpreadsheetApp.getUi().alert('تم ترحيل ' + migrated + ' كلمة مرور بنجاح ✓');
 }
 
 // ── دالة الإبقاء على النظام نشطاً (تقليل وقت الاستجابة) ────────────
@@ -167,9 +201,9 @@ function fixAllHeaders() {
     'حضور_مخدومين_خريجين':               ATT_HEADERS,
     'حضور_مخدومين_عام':                  ATT_HEADERS,  // fallback
     // الجداول الأساسية
-    'Users':          ['id','username','password','email','role','stage','status','createdAt'],
+    'Users':          ['id','username','password','salt','email','role','stage','status','createdAt'],
     'Sessions':       ['token','userId','username','createdAt','expiresAt','lastUsed'],
-    'PendingUsers':   ['id','username','password','email','role','stage','requestedAt','note'],
+    'PendingUsers':   ['id','username','password','salt','email','role','stage','requestedAt','note'],
     'ServiceProgram': ['date','items','updatedBy','updatedAt'],
   };
 
@@ -310,7 +344,23 @@ function isAdminSession(token) {
   }
 }
 
-// مساعد مسح الكاش عند تغيير البيانات
+// ── تشفير كلمة المرور (SHA-256 + salt) ──────────────────────────
+function generateSalt() {
+  return Utilities.getUuid().replace(/-/g, '').substring(0, 16);
+}
+
+function hashPassword(password, salt) {
+  const raw  = password + salt + API_SECRET; // API_SECRET as pepper
+  const hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+               raw, Utilities.Charset.UTF_8);
+  return hash.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+}
+
+function verifyPassword(password, storedHash, salt) {
+  return hashPassword(password, salt) === storedHash;
+}
+
+// ── مساعد مسح الكاش عند تغيير البيانات ──────────────────────────
 function clearDataCache() {
   try {
     const cache = CacheService.getScriptCache();
@@ -327,11 +377,13 @@ function doPost(e) {
       return respond({ success: false, error: 'غير مصرح' });
     }
 
+    let sessionUser = null;
     if (!PUBLIC_ACTIONS.includes(action)) {
       const check = validateSession(sessionToken);
       if (!check.valid) {
         return respond({ success: false, error: check.reason, code: 'SESSION_EXPIRED' });
       }
+      sessionUser = { role: check.role, stage: check.stage, userId: check.userId };
     }
 
     // Actions restricted to admin role only
@@ -340,11 +392,36 @@ function doPost(e) {
       'getUsers','updateUser','deleteUser',
       'register',
       'getAllKhodam','getAllMakhdomen',
+      'saveProgram',   // برنامج الخدمة للمدير فقط
     ];
     if (ADMIN_ONLY_ACTIONS.includes(action)) {
-      if (!isAdminSession(sessionToken)) {
+      if (!sessionUser || sessionUser.role !== 'admin') {
         return respond({ success: false, error: 'غير مصرح — هذا الإجراء للمدير فقط', code: 'FORBIDDEN' });
       }
+    }
+
+    // Stage authorization: non-admin can only access their own stage
+    const STAGE_RESTRICTED = ['getKhodam','addKhodam','updateKhodam','deleteKhodam',
+                               'getKhodamAttendance','addKhodamAttendance','updateKhodamAttendance',
+                               'getMakhdomen','addMakhdomen','updateMakhdomen','deleteMakhdomen',
+                               'getMakhdomenAttendance','addMakhdomenAttendance','updateMakhdomenAttendance'];
+    if (sessionUser && sessionUser.role !== 'admin' && STAGE_RESTRICTED.includes(action)) {
+      const requestedStage = payload.stage || '';
+      if (requestedStage && requestedStage !== sessionUser.stage) {
+        return respond({ success: false, error: 'غير مصرح — لا يمكنك الوصول لبيانات مرحلة أخرى', code: 'FORBIDDEN' });
+      }
+    }
+
+    // Validate stage values against whitelist to prevent sheet-name injection
+    const STAGE_ACTIONS = ['addKhodam','updateKhodam','deleteKhodam',
+                           'getKhodam','getKhodamAttendance','addKhodamAttendance','updateKhodamAttendance'];
+    const MSTAGE_ACTIONS = ['addMakhdomen','updateMakhdomen','deleteMakhdomen',
+                            'getMakhdomen','getMakhdomenAttendance','addMakhdomenAttendance','updateMakhdomenAttendance'];
+    if (STAGE_ACTIONS.includes(action) && payload.stage && !KHODAM_STAGES.includes(payload.stage)) {
+      return respond({ success: false, error: 'قيمة المرحلة غير صالحة' });
+    }
+    if (MSTAGE_ACTIONS.includes(action) && payload.stage && !MAKHDOMEN_STAGES.includes(payload.stage)) {
+      return respond({ success: false, error: 'قيمة المرحلة غير صالحة' });
     }
 
     let result;
@@ -469,9 +546,9 @@ function initHeaders(sheet, name) {
   } else {
     // الجداول الثابتة
     const fixed = {
-      'Users':          ['id','username','password','email','role','stage','status','createdAt'],
+      'Users':          ['id','username','password','salt','email','role','stage','status','createdAt'],
       'Sessions':       ['token','userId','username','createdAt','expiresAt','lastUsed'],
-      'PendingUsers':   ['id','username','password','email','role','stage','requestedAt','note'],
+      'PendingUsers':   ['id','username','password','salt','email','role','stage','requestedAt','note'],
       'ServiceProgram': ['date','items','updatedBy','updatedAt'],
     };
     headers = fixed[name] || null;
@@ -615,30 +692,32 @@ function updateKhodam(payload) {
     return updateRow(newSheet, payload);
   }
 
-  // Stage changed — find and delete from old tab, insert in new tab
-  let deleted = false;
-  for (const stage of KHODAM_STAGES) {
-    const oldSheet = stageSheetName(stage);
-    if (oldSheet === newSheet) continue;
-    const data    = getSheet(oldSheet).getDataRange().getValues();
-    const headers = data[0] || [];
-    const col     = headers.indexOf('id');
-    if (col < 0) continue;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][col]) === String(payload.id)) {
-        getSheet(oldSheet).deleteRow(i + 1);
-        deleted = true;
-        break;
+  // Safe stage-change: INSERT first (prevents data loss), then DELETE old
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(8000);
+    // 1. Insert into new tab first
+    getSheet(newSheet).appendRow(KHODAM_HEADERS.map(h => payload[h] !== undefined ? payload[h] : ''));
+    SpreadsheetApp.flush();
+    // 2. Delete from old tab
+    for (const stage of KHODAM_STAGES) {
+      const oldSheetName = stageSheetName(stage);
+      if (oldSheetName === newSheet) continue;
+      const data = getSheet(oldSheetName).getDataRange().getValues();
+      const col  = (data[0] || []).indexOf('id');
+      if (col < 0) continue;
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][col]) === String(payload.id)) {
+          getSheet(oldSheetName).deleteRow(i + 1);
+          break;
+        }
       }
     }
-    if (deleted) break;
+  } catch(e) {
+    return { success: false, error: 'تعذّر نقل السجل: ' + e.message };
+  } finally {
+    try { lock.releaseLock(); } catch {}
   }
-
-  // Insert into new tab
-  const sheet   = getSheet(newSheet);
-  const headers = KHODAM_HEADERS;
-  const row     = headers.map(h => payload[h] !== undefined ? payload[h] : '');
-  sheet.appendRow(row);
   clearDataCache();
   return { success: true, data: payload };
 }
@@ -658,13 +737,24 @@ function getKhodamAttendance(stage) {
 
 function addKhodamAttendance(payload) {
   if (!payload.stage) return { success: false, error: 'المرحلة مطلوبة' };
-  const sheetName = attendanceSheetName(payload.stage);
-  const sheet     = getSheet(sheetName);
-  const headers   = ATT_HEADERS;
-  payload.id      = generateId();
-  sheet.appendRow(headers.map(h => payload[h] !== undefined ? payload[h] : ''));
-  clearDataCache();
-  return { success: true, data: payload };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(5000);
+    const sheetName = attendanceSheetName(payload.stage);
+    const sheet     = getSheet(sheetName);
+    const existing  = sheetToObjects(sheet);
+    const dup = existing.find(r => String(r.memberId) === String(payload.memberId)
+                               && String(r.date).slice(0,10) === String(payload.date).slice(0,10));
+    if (dup) return updateRow(sheetName, { ...dup, ...payload, id: dup.id });
+    payload.id = generateId();
+    sheet.appendRow(ATT_HEADERS.map(h => payload[h] !== undefined ? payload[h] : ''));
+    SpreadsheetApp.flush();
+    return { success: true, data: payload };
+  } catch(e) {
+    return { success: false, error: 'تعذّر الحفظ: ' + e.message };
+  } finally {
+    try { lock.releaseLock(); } catch {}
+  }
 }
 
 function updateKhodamAttendance(payload) {
@@ -769,15 +859,26 @@ function getMakhdomenAttendance(stage) {
 }
 
 function addMakhdomenAttendance(payload) {
-  // payload.stage = المرحلة الدقيقة للمخدوم — نحوّلها للتاب المجمّع
   if (!payload.stage) return { success: false, error: 'المرحلة مطلوبة' };
-  const sheetName = makhdomenAttSheetName(payload.stage);
-  const sheet     = getSheet(sheetName);
-  const headers   = ATT_HEADERS;
-  payload.id      = generateId();
-  sheet.appendRow(headers.map(h => payload[h] !== undefined ? payload[h] : ''));
-  clearDataCache();
-  return { success: true, data: payload };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(5000);
+    const sheetName = makhdomenAttSheetName(payload.stage);
+    const sheet     = getSheet(sheetName);
+    const existing  = sheetToObjects(sheet);
+    const dup = existing.find(r => String(r.memberId) === String(payload.memberId)
+                               && String(r.date).slice(0,10) === String(payload.date).slice(0,10));
+    if (dup) return updateRow(sheetName, { ...dup, ...payload, id: dup.id });
+    payload.id = generateId();
+    sheet.appendRow(ATT_HEADERS.map(h => payload[h] !== undefined ? payload[h] : ''));
+    SpreadsheetApp.flush();
+    return { success: true, data: payload };
+  } catch(e) {
+    return { success: false, error: 'تعذّر الحفظ: ' + e.message };
+  } finally {
+    try { lock.releaseLock(); } catch {}
+  }
+
 }
 
 function updateMakhdomenAttendance(payload) {
@@ -808,6 +909,7 @@ function validateSession(token) {
   const tokenCol   = headers.indexOf('token');
   const expiresCol = headers.indexOf('expiresAt');
   const lastUsedCol= headers.indexOf('lastUsed');
+  const userIdCol  = headers.indexOf('userId');
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][tokenCol] === token) {
@@ -818,7 +920,11 @@ function validateSession(token) {
       const newExpiry = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
       sheet.getRange(i + 1, expiresCol + 1).setValue(newExpiry.toISOString());
       sheet.getRange(i + 1, lastUsedCol + 1).setValue(new Date().toISOString());
-      return { valid: true };
+      // Return user data for authorization use
+      const userId = userIdCol >= 0 ? String(data[i][userIdCol]) : null;
+      const users  = sheetToObjects(getSheet('Users'));
+      const user   = users.find(u => String(u.id) === userId);
+      return { valid: true, userId, role: user?.role || 'user', stage: user?.stage || '' };
     }
   }
   return { valid: false, reason: 'جلسة غير صالحة، يرجى تسجيل الدخول مجدداً.' };
@@ -855,14 +961,31 @@ function cleanExpiredSessions() {
 function login({ username, password }) {
   if (!username || !password)
     return { success: false, error: 'اسم المستخدم وكلمة المرور مطلوبان' };
+
+  // Rate limiting: max 5 failed attempts per 15 minutes per username
+  const cache      = CacheService.getScriptCache();
+  const rateKey    = 'login_fail_' + username.toLowerCase().substring(0, 30);
+  const attemptsRaw = cache.get(rateKey);
+  const attempts   = attemptsRaw ? parseInt(attemptsRaw) : 0;
+  if (attempts >= 5) {
+    return { success: false, error: 'تم تجاوز عدد المحاولات المسموح بها. حاول مجدداً بعد 15 دقيقة.' };
+  }
   const users = sheetToObjects(getSheet('Users'));
   const user  = users.find(u =>
-    String(u.username).toLowerCase() === String(username).toLowerCase() &&
-    String(u.password) === String(password));
-  if (!user)                    return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    String(u.username).toLowerCase() === String(username).toLowerCase());
+  // Always run verification to prevent timing attacks
+  const dummySalt = 'dummy0000000000';
+  const isValid   = user ? verifyPassword(password, user.password, user.salt || dummySalt) : false;
+  if (!user || !isValid) {
+    // Increment failed attempt counter
+    cache.put(rateKey, String(attempts + 1), 900); // 15 minutes TTL
+    return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+  }
   if (user.status === 'inactive') return { success: false, error: 'تم تعطيل هذا الحساب. تواصل مع المدير.' };
+  // Reset rate limit on successful login
+  cache.remove(rateKey);
   const token = createSession(user);
-  const { password: _, ...safeUser } = user;
+  const { password: _, salt: __, ...safeUser } = user;
   return { success: true, data: { ...safeUser, sessionToken: token } };
 }
 
@@ -885,9 +1008,11 @@ function registerRequest({ username, password, email, role = 'user', stage = '',
     return { success: false, error: 'اسم المستخدم موجود بالفعل أو في انتظار المراجعة' };
 
   const sheet   = getSheet('PendingUsers');
-  const headers = ['id','username','password','email','role','stage','requestedAt','note'];
+  const headers = ['id','username','password','salt','email','role','stage','requestedAt','note'];
   const id      = generateId();
-  const payload = { id, username, password, email, role, stage,
+  const salt    = generateSalt();
+  const hashed  = hashPassword(password, salt);
+  const payload = { id, username, password: hashed, salt, email, role, stage,
                     requestedAt: new Date().toISOString(), note };
   sheet.appendRow(headers.map(h => payload[h] !== undefined ? payload[h] : ''));
   return { success: true, message: 'تم إرسال طلب التسجيل. سيتم إخطارك عند الموافقة.' };
@@ -903,9 +1028,11 @@ function register({ username, password, email, role = 'user', stage = '' }) {
   if (users.find(u => String(u.username).toLowerCase() === String(username).toLowerCase()))
     return { success: false, error: 'اسم المستخدم موجود بالفعل' };
   const sheet   = getSheet('Users');
-  const headers = ['id','username','password','email','role','stage','status','createdAt'];
+  const headers = ['id','username','password','salt','email','role','stage','status','createdAt'];
   const id      = generateId();
-  const payload = { id, username, password, email, role, stage, status: 'active',
+  const salt    = generateSalt();
+  const hashed  = hashPassword(password, salt);
+  const payload = { id, username, password: hashed, salt, email, role, stage, status: 'active',
                     createdAt: new Date().toISOString() };
   sheet.appendRow(headers.map(h => payload[h] !== undefined ? payload[h] : ''));
   return { success: true, data: { id, username, email, role, stage } };
@@ -934,9 +1061,11 @@ function approveUser(payload) {
       const approvedStage = payload.stage || obj.stage || '';
       const usersSheet    = getSheet('Users');
       const uHeaders      = ['id','username','password','email','role','stage','status','createdAt'];
+      // Password is already hashed in PendingUsers — copy hash + salt
       const newUser = {
         id: generateId(), username: obj.username, password: obj.password,
-        email: obj.email, role: approvedRole, stage: approvedStage,
+        salt: obj.salt || generateSalt(), email: obj.email,
+        role: approvedRole, stage: approvedStage,
         status: 'active', createdAt: new Date().toISOString()
       };
       usersSheet.appendRow(uHeaders.map(h => newUser[h] !== undefined ? newUser[h] : ''));
@@ -995,8 +1124,22 @@ function updateUser(payload) {
       });
       // تحديث كلمة المرور فقط إذا أُرسلت
       if (payload.newPassword) {
-        const pwdCol = headers.indexOf('password');
-        if (pwdCol >= 0) data[i][pwdCol] = payload.newPassword;
+        const pwdCol  = headers.indexOf('password');
+        const saltCol = headers.indexOf('salt');
+        if (pwdCol >= 0) {
+          const newSalt   = generateSalt();
+          const newHashed = hashPassword(payload.newPassword, newSalt);
+          data[i][pwdCol] = newHashed;
+          if (saltCol >= 0) data[i][saltCol] = newSalt;
+        }
+        // Invalidate all sessions for this user after password change
+        const sessions = getSheet('Sessions');
+        const sData    = sessions.getDataRange().getValues();
+        const sHeaders = sData[0];
+        const uidCol   = sHeaders.indexOf('userId');
+        for (let j = sData.length - 1; j >= 1; j--) {
+          if (String(sData[j][uidCol]) === String(payload.id)) sessions.deleteRow(j + 1);
+        }
       }
       sheet.getRange(i + 1, 1, 1, headers.length).setValues([data[i]]);
       return { success: true };
