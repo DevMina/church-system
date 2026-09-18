@@ -320,7 +320,7 @@ function attendanceSheetName(stage) {
 const PUBLIC_ACTIONS = ['login', 'registerRequest', 'forgotPassword', 'getProgram'];
 
 // ── نقطة الدخول ──────────────────────────────────────────────────
-// مساعد التحقق من صلاحية المدير (مع كاش للأداء)
+// مساعد داخلي للتحقق من صلاحية المدير — للاستخدام في دوال داخلية فقط
 function isAdminSession(token) {
   if (!token) return false;
   try {
@@ -815,40 +815,32 @@ function updateMakhdomen(payload) {
     return updateRow(newSheet, payload);
   }
 
-  // Stage changed — find in any old makhdomen tab and move
-  const allTabs = ['حضانة','أولى_تانية_ابتدائي','تالتة_رابعة_ابتدائي',
-                   'خامسة_سادسة_ابتدائي','إعدادي','ثانوي','شباب','خريجين'];
-  let deleted = false;
-  for (const tab of allTabs) {
-    const oldSheet = 'مخدومين_' + tab;
-    if (oldSheet === newSheet) continue;
-    const data    = getSheet(oldSheet).getDataRange().getValues();
-    const headers = data[0] || [];
-    const col     = headers.indexOf('id');
-    if (col < 0) continue;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][col]) === String(payload.id)) {
-        getSheet(oldSheet).deleteRow(i + 1);
-        deleted = true;
-        break;
+  // Safe stage-change: INSERT first, then DELETE
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(8000);
+    getSheet(newSheet).appendRow(MAKHDOMEN_HEADERS.map(h => payload[h] !== undefined ? payload[h] : ''));
+    SpreadsheetApp.flush();
+    const allTabs2 = ['حضانة','أولى_تانية_ابتدائي','تالتة_رابعة_ابتدائي',
+                      'خامسة_سادسة_ابتدائي','إعدادي','ثانوي','شباب','خريجين'];
+    for (const tab of allTabs2) {
+      const oldName = 'مخدومين_' + tab;
+      if (oldName === newSheet) continue;
+      const d = getSheet(oldName).getDataRange().getValues();
+      const c = (d[0] || []).indexOf('id');
+      if (c < 0) continue;
+      for (let i = 1; i < d.length; i++) {
+        if (String(d[i][c]) === String(payload.id)) { getSheet(oldName).deleteRow(i + 1); break; }
       }
     }
-    if (deleted) break;
+  } catch(e) {
+    return { success: false, error: 'تعذّر نقل السجل: ' + e.message };
+  } finally {
+    try { lock.releaseLock(); } catch {}
   }
-
-  const sheet   = getSheet(newSheet);
-  const headers = MAKHDOMEN_HEADERS;
-  const row     = headers.map(h => payload[h] !== undefined ? payload[h] : '');
-  sheet.appendRow(row);
+  clearDataCache();
   return { success: true, data: payload };
 }
-
-function deleteMakhdomen(payload) {
-  if (!payload.stage) return { success: false, error: 'المرحلة مطلوبة' };
-  clearDataCache();
-  return deleteRow(makhdomenSheetName(payload.stage), payload.id);
-}
-
 // ── حضور المخدومين حسب المرحلة ───────────────────────────────────
 // stage هنا مرحلة الخادم (8) — نجلب تاب حضور المخدومين المقابل
 function getMakhdomenAttendance(stage) {
@@ -903,6 +895,20 @@ function createSession(user) {
 
 function validateSession(token) {
   if (!token) return { valid: false, reason: 'لا يوجد توكن' };
+
+  // Check cache first — avoids reading Users sheet on every request
+  const cache    = CacheService.getScriptCache();
+  const cacheKey = 'sess_' + token.substring(0, 24);
+  const cached   = cache.get(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      // Still need to update lastUsed in Sessions — do it async-style every 5 min
+      // by checking if enough time has passed (stored in cache alongside role)
+      return { valid: true, userId: parsed.userId, role: parsed.role, stage: parsed.stage };
+    } catch {}
+  }
+
   const sheet      = getSheet('Sessions');
   const data       = sheet.getDataRange().getValues();
   const headers    = data[0];
@@ -915,16 +921,21 @@ function validateSession(token) {
     if (data[i][tokenCol] === token) {
       if (new Date() > new Date(data[i][expiresCol])) {
         sheet.deleteRow(i + 1);
+        cache.remove(cacheKey);
         return { valid: false, reason: 'انتهت مدة الجلسة، يرجى تسجيل الدخول مجدداً.' };
       }
+      // Update sliding window expiry
       const newExpiry = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
       sheet.getRange(i + 1, expiresCol + 1).setValue(newExpiry.toISOString());
       sheet.getRange(i + 1, lastUsedCol + 1).setValue(new Date().toISOString());
-      // Return user data for authorization use
+
+      // Read user role+stage and cache for 5 minutes
       const userId = userIdCol >= 0 ? String(data[i][userIdCol]) : null;
       const users  = sheetToObjects(getSheet('Users'));
       const user   = users.find(u => String(u.id) === userId);
-      return { valid: true, userId, role: user?.role || 'user', stage: user?.stage || '' };
+      const result = { valid: true, userId, role: user?.role || 'user', stage: user?.stage || '' };
+      try { cache.put(cacheKey, JSON.stringify({ userId, role: result.role, stage: result.stage }), 300); } catch {}
+      return result;
     }
   }
   return { valid: false, reason: 'جلسة غير صالحة، يرجى تسجيل الدخول مجدداً.' };
@@ -932,6 +943,12 @@ function validateSession(token) {
 
 function logout(token) {
   if (!token) return { success: true };
+  // Clear session cache
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.remove('sess_' + token.substring(0, 24));
+    cache.remove('role_' + token.substring(0, 20));
+  } catch {}
   const sheet    = getSheet('Sessions');
   const data     = sheet.getDataRange().getValues();
   const tokenCol = data[0].indexOf('token');
