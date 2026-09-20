@@ -13,7 +13,8 @@ function showMemberQR(type, id) {
   const member = (list || []).find(m => String(m.id) === String(id));
   if (!member) { toast('لم يتم العثور على العضو — حاول تحديث البيانات', 'error'); return; }
 
-  const qrData = JSON.stringify({ id: member.id, name: member.name, type });
+  // Minimal data — name looked up from State on scan to keep QR short
+  const qrData = JSON.stringify({ i: String(member.id), t: type === 'khodam' ? 'k' : 'm' });
 
   document.getElementById('qrMemberName').textContent  = member.name;
   document.getElementById('qrMemberType').textContent  = type === 'khodam' ? 'خادم' : 'مخدوم';
@@ -35,7 +36,7 @@ function showMemberQR(type, id) {
       height:        220,
       colorDark:     '#1E2A4A',
       colorLight:    '#ffffff',
-      correctLevel:  QRCode.CorrectLevel.H,
+      correctLevel:  QRCode.CorrectLevel.M,  // M=15% correction, supports longer data than H
     });
   }, 100);
 }
@@ -361,7 +362,7 @@ function printAllQR(type) {
       </div>`).join('');
 
     list.forEach(m => {
-      const qrData = JSON.stringify({ id: m.id, name: m.name, type });
+      const qrData = JSON.stringify({ i: String(m.id), t: type === 'khodam' ? 'k' : 'm' });
       new QRCode(document.getElementById(`bqrbox_${m.id}`), {
         text:         qrData,
         width:        140,
