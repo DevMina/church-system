@@ -196,6 +196,9 @@ function viewMember(type, id) {
       ${vf('تاريخ الميلاد', DateUtil.formatDate(m.birthDate))}
       ${vf('المرحلة', m.stage)}
       ${vf('أب الاعتراف', m.confessionFather)}
+      ${vfHtml('الحالة', m.status === 'inactive'
+        ? '<span class="badge badge-inactive">غير نشط</span>'
+        : '<span class="badge badge-active">نشط</span>')}
       ${vf('ملاحظات', m.notes, true)}`;
   } else {
     fields = `
@@ -208,7 +211,7 @@ function viewMember(type, id) {
       ${vf('تاريخ الميلاد', DateUtil.formatDate(m.birthDate))}
       ${vf('المرحلة', m.stage)}
       ${vf('أب الاعتراف', m.confessionFather)}
-      ${vf('الحالة', m.absent === 'yes' ? '<span class="badge badge-absent">غير متواجد</span>' : '<span class="badge badge-present">متواجد</span>')}
+      ${vfHtml('الحالة', m.absent === 'yes' ? '<span class="badge badge-absent">غير متواجد</span>' : '<span class="badge badge-present">متواجد</span>')}
       ${vf('ملاحظات', m.notes, true)}`;
   }
 
@@ -228,6 +231,14 @@ function vf(label, value, full = false) {
   return `<div style="${full ? 'grid-column:1/-1' : ''}">
     <div style="font-size:.72rem;font-weight:700;color:var(--slate-light);margin-bottom:3px">${esc(label)}</div>
     <div style="color:var(--navy);font-size:.9rem">${esc(value) || '—'}</div>
+  </div>`;
+}
+
+// vfHtml: like vf() but value is trusted HTML (e.g. badge spans) — not escaped
+function vfHtml(label, html, full = false) {
+  return `<div style="${full ? 'grid-column:1/-1' : ''}">
+    <div style="font-size:.72rem;font-weight:700;color:var(--slate-light);margin-bottom:3px">${esc(label)}</div>
+    <div style="color:var(--navy);font-size:.9rem">${html || '—'}</div>
   </div>`;
 }
 
