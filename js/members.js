@@ -167,7 +167,7 @@ function openAddMember(type) {
 
 function editMember(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = (list || []).find(m => String(m.id) === String(String)(id));
+  const member = (list || []).find(m => String(m.id) === String(id));
   if (!member) return;
   document.getElementById(`${type}ModalTitle`).textContent =
     type === 'khodam' ? 'تعديل بيانات الخادم' : 'تعديل بيانات المخدوم';
@@ -181,7 +181,7 @@ function editMember(type, id) {
 
 function viewMember(type, id) {
   const list = type === 'khodam' ? State.khodam : State.makhdomen;
-  const m    = list.find(x => String(x.id) === String(String)(id));
+  const m    = list.find(x => String(x.id) === String(id));
   if (!m) return;
 
   document.getElementById('viewModalTitle').textContent =
@@ -277,7 +277,7 @@ async function saveMember(type) {
 
 async function deleteMember(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = list.find(m => String(m.id) === String(String)(id));
+  const member = list.find(m => String(m.id) === String(id));
   confirmAction(`هل تريد حذف "${member?.name || ''}"؟ لا يمكن التراجع عن هذا الإجراء.`, async () => {
     const result = type === 'khodam'
       ? await API.deleteKhodam(id, member?.stage || '')

@@ -10,7 +10,7 @@ function showMemberQR(type, id) {
   currentQrId   = id;
 
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = (list || []).find(m => String(m.id) === String(String)(id));
+  const member = (list || []).find(m => String(m.id) === String(id));
   if (!member) { toast('لم يتم العثور على العضو — حاول تحديث البيانات', 'error'); return; }
 
   const qrData = JSON.stringify({ id: member.id, name: member.name, type });
@@ -42,7 +42,7 @@ function showMemberQR(type, id) {
 
 function downloadQR(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = (list || []).find(m => String(m.id) === String(String)(id));
+  const member = (list || []).find(m => String(m.id) === String(id));
   if (!member) { toast('لم يتم العثور على العضو — حاول تحديث البيانات', 'error'); return; }
 
   setTimeout(() => {
@@ -165,7 +165,7 @@ async function onQrScanned(text) {
   if (type !== 'khodam' && type !== 'makhdomen') { showScanError('نوع العضو في QR غير معروف'); return; }
 
   const list   = (type === 'khodam' ? State.khodam : State.makhdomen) || [];
-  const member = list.find(m => String(m.id) === String(String)(id));
+  const member = list.find(m => String(m.id) === String(id));
   if (!member) { showScanError(`العضو "${esc(name || '')}" غير موجود — تأكد من تحميل بيانات المرحلة`); return; }
 
   // عرض بيانات العضو وخيارات التسجيل
@@ -245,7 +245,7 @@ function showScanSuccess(member, type) {
 async function registerQrAttendance(memberId, type, attType, dateVal, btn) {
   const attendance = type === 'khodam' ? State.khodamAttendance : State.makhdomenAttendance;
   const members    = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member     = members.find(m => String(m.id) === String(String)(memberId));
+  const member     = members.find(m => String(m.id) === String(memberId));
   if (!member) return;
 
   const weekStart = DateUtil.getWeekStart(dateVal);

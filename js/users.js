@@ -261,7 +261,7 @@ function openAddUserModal() {
 }
 
 function openEditUserModalById(id) {
-  const user = _cachedUsers.find(u => String(u.id) === String(String)(id));
+  const user = _cachedUsers.find(u => String(u.id) === String(id));
   if (!user) { toast('المستخدم غير موجود', 'error'); return; }
   openEditUserModal(user);
 }
