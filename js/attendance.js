@@ -185,7 +185,7 @@ async function saveWeeklyAttendance(type) {
     const date   = dateEl?.value || dateInput.value;
 
     const existing = attendance.find(a =>
-      a.memberId === m.id && DateUtil.isSameWeek(a.date, weekStart));
+      String(a.memberId) === String(m.id) && DateUtil.isSameWeek(a.date, weekStart));
 
     const payload = {
       memberId:   m.id,
@@ -246,7 +246,7 @@ function renderMonthlyView(type) {
 
   // ملخص لكل عضو
   const summary = members.map((m, idx) => {
-    const records     = monthAtt.filter(a => a.memberId === m.id);
+    const records     = monthAtt.filter(a => String(a.memberId) === String(m.id));
     const massPresent = records.filter(r => r.mass   === 'present').length;
     const khedmaPresent = records.filter(r => r.khedma === 'present').length;
     const total       = weeks.length;
@@ -294,7 +294,7 @@ function renderMonthlyView(type) {
                 </div>
               </td>
               ${weeks.map(w => {
-                const rec = monthAtt.find(a => a.memberId === m.id && a.week === w);
+                const rec = monthAtt.find(a => String(a.memberId) === String(m.id) && a.week === w);
                 const massVal   = rec?.mass   || 'absent';
                 const khedmaVal = rec?.khedma || 'absent';
                 return `

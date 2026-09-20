@@ -22,7 +22,7 @@ function gregorianToJDN(y, m, d) {
 }
 
 function jdnToCoptic(jdn) {
-  const r = jdn - 1824665;
+  const r = jdn - 1824667; // corrected offset (was 1824665 — 2 days off)
   const n = Math.floor(r / 1461);
   const r2 = r % 1461;
   const y = 4 * n + Math.floor(r2 / 365) - (r2 === 1460 ? 1 : 0);

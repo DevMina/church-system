@@ -97,7 +97,7 @@ async function loadUsersPage() {
                       ${(u.username||'م')[0].toUpperCase()}
                     </div>
                     <span style="font-weight:700">${esc(u.username)}</span>
-                    ${u.id === State.user?.id ? '<span style="font-size:.7rem;color:var(--gold);font-weight:700">(أنت)</span>' : ''}
+                    ${String(u.id) === String(State.user?.id) ? '<span style="font-size:.7rem;color:var(--gold);font-weight:700">(أنت)</span>' : ''}
                   </div>
                 </td>
                 <td style="color:var(--slate);font-size:.85rem" dir="ltr">${esc(u.email) || '—'}</td>
@@ -261,7 +261,7 @@ function openAddUserModal() {
 }
 
 function openEditUserModalById(id) {
-  const user = _cachedUsers.find(u => u.id === id);
+  const user = _cachedUsers.find(u => String(u.id) === String(String)(id));
   if (!user) { toast('المستخدم غير موجود', 'error'); return; }
   openEditUserModal(user);
 }

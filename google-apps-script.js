@@ -137,9 +137,16 @@ function migratePasswords() {
 // ── دالة الإبقاء على النظام نشطاً (تقليل وقت الاستجابة) ────────────
 // اضبطها كـ trigger كل 5 دقائق: Triggers → Add Trigger → keepAlive → Time-driven → Minutes → 5
 function keepAlive() {
-  // طلب بسيط يبقي Apps Script دافئاً ويقلل وقت الاستجابة الأول
+  // يبقي Apps Script دافئاً ويُنظّف الجلسات المنتهية
   SpreadsheetApp.getActiveSpreadsheet().getName();
-  Logger.log('keepAlive: ' + new Date().toISOString());
+  // Clean expired sessions every ~15 min (every 3rd keepAlive call)
+  try {
+    const cache = CacheService.getScriptCache();
+    const tickKey = 'keepAlive_tick';
+    const tick = parseInt(cache.get(tickKey) || '0') + 1;
+    cache.put(tickKey, String(tick), 900);
+    if (tick % 3 === 0) cleanExpiredSessions();
+  } catch {}
 }
 
 // شغّل هذه الدالة مرة واحدة لإعداد الـ trigger تلقائياً
@@ -223,24 +230,42 @@ function fixAllHeaders() {
     const headers = sheetHeaderMap[name];
 
     // إذا كان الجدول فارغاً أو أول صف لا يحتوي على 'id'
-    if (data.length === 0 || !data[0].includes('id') && !data[0].includes('token') && !data[0].includes('date')) {
-      // امسح أي بيانات قديمة وأضف headers
-      if (data.length > 0 && data[0].filter(Boolean).length === 0) {
+    const existingHeaders = data.length > 0 ? data[0].map(String) : [];
+    const needsFullFix = data.length === 0 ||
+      (!existingHeaders.includes('id') && !existingHeaders.includes('token') && !existingHeaders.includes('date'));
+
+    // Find missing columns (e.g. 'salt' added after initial setup)
+    const missingCols = headers.filter(h => !existingHeaders.includes(h));
+
+    if (needsFullFix) {
+      // Sheet has no headers at all — create from scratch
+      if (data.length > 0 && existingHeaders.filter(Boolean).length === 0) {
         sheet.clearContents();
       }
       sheet.insertRowBefore(1);
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-
-      // لون الـ header
       let color = '#1E2A4A';
       for (const prefix of Object.keys(colorMap)) {
         if (name.startsWith(prefix)) { color = colorMap[prefix]; break; }
       }
       sheet.getRange(1, 1, 1, headers.length)
         .setBackground(color).setFontColor('#FFFFFF').setFontWeight('bold');
-
       fixed++;
-      Logger.log('Fixed headers: ' + name);
+      Logger.log('Fixed headers (full): ' + name);
+    } else if (missingCols.length > 0) {
+      // Sheet exists but missing some columns — append them
+      missingCols.forEach(col => {
+        const newColIdx = sheet.getLastColumn() + 1;
+        sheet.getRange(1, newColIdx).setValue(col);
+        sheet.getRange(1, newColIdx).setBackground('#1E2A4A')
+          .setFontColor('#FFFFFF').setFontWeight('bold');
+        // Fill existing rows with empty string
+        if (sheet.getLastRow() > 1) {
+          sheet.getRange(2, newColIdx, sheet.getLastRow() - 1, 1).setValue('');
+        }
+        Logger.log('Added missing column "' + col + '" to: ' + name);
+      });
+      fixed++;
     } else {
       Logger.log('OK: ' + name);
     }
@@ -413,15 +438,19 @@ function doPost(e) {
     }
 
     // Validate stage values against whitelist to prevent sheet-name injection
-    const STAGE_ACTIONS = ['addKhodam','updateKhodam','deleteKhodam',
-                           'getKhodam','getKhodamAttendance','addKhodamAttendance','updateKhodamAttendance'];
-    const MSTAGE_ACTIONS = ['addMakhdomen','updateMakhdomen','deleteMakhdomen',
-                            'getMakhdomen','getMakhdomenAttendance','addMakhdomenAttendance','updateMakhdomenAttendance'];
-    if (STAGE_ACTIONS.includes(action) && payload.stage && !KHODAM_STAGES.includes(payload.stage)) {
-      return respond({ success: false, error: 'قيمة المرحلة غير صالحة' });
+    // Stage whitelist validation — prevents sheet-name injection
+    // Khodam actions + makhdomen ATTENDANCE (which takes khodam stage) → validate against KHODAM_STAGES
+    const KHODAM_STAGE_ACTIONS = ['addKhodam','updateKhodam','deleteKhodam',
+                                   'getKhodam','getKhodamAttendance','addKhodamAttendance','updateKhodamAttendance',
+                                   'getMakhdomenAttendance','addMakhdomenAttendance','updateMakhdomenAttendance'];
+    // Makhdomen data actions → validate against MAKHDOMEN_STAGES
+    const MAKHDOMEN_STAGE_ACTIONS = ['addMakhdomen','updateMakhdomen','deleteMakhdomen','getMakhdomen'];
+
+    if (KHODAM_STAGE_ACTIONS.includes(action) && payload.stage && !KHODAM_STAGES.includes(payload.stage)) {
+      return respond({ success: false, error: 'قيمة مرحلة الخدمة غير صالحة' });
     }
-    if (MSTAGE_ACTIONS.includes(action) && payload.stage && !MAKHDOMEN_STAGES.includes(payload.stage)) {
-      return respond({ success: false, error: 'قيمة المرحلة غير صالحة' });
+    if (MAKHDOMEN_STAGE_ACTIONS.includes(action) && payload.stage && !MAKHDOMEN_STAGES.includes(payload.stage)) {
+      return respond({ success: false, error: 'قيمة مرحلة المخدوم غير صالحة' });
     }
 
     let result;
@@ -569,9 +598,13 @@ function sheetToObjects(sheet) {
     const obj = {};
     headers.forEach((h, i) => {
       let val = row[i];
-      // Convert Sheets Date objects to ISO string for consistent frontend handling
+      // Convert Sheets Date objects to ISO string
       if (val instanceof Date) {
-        val = val.toISOString().split('T')[0]; // YYYY-MM-DD
+        val = val.toISOString().split('T')[0];
+      }
+      // Ensure id fields are always strings (Sheets may return numbers)
+      if (h === 'id' || h === 'userId' || h === 'memberId') {
+        val = val !== undefined && val !== null && val !== '' ? String(val) : '';
       }
       obj[h] = val;
     });
@@ -896,6 +929,15 @@ function createSession(user) {
 function validateSession(token) {
   if (!token) return { valid: false, reason: 'لا يوجد توكن' };
 
+  // Periodic cleanup of expired sessions (every ~50 validations)
+  try {
+    const cache    = CacheService.getScriptCache();
+    const cleanKey = 'val_tick';
+    const t        = parseInt(cache.get(cleanKey) || '0') + 1;
+    cache.put(cleanKey, String(t), 3600);
+    if (t % 50 === 0) cleanExpiredSessions();
+  } catch {}
+
   // Check cache first — avoids reading Users sheet on every request
   const cache    = CacheService.getScriptCache();
   const cacheKey = 'sess_' + token.substring(0, 24);
@@ -1077,7 +1119,7 @@ function approveUser(payload) {
       const approvedRole  = payload.role  || obj.role  || 'user';
       const approvedStage = payload.stage || obj.stage || '';
       const usersSheet    = getSheet('Users');
-      const uHeaders      = ['id','username','password','email','role','stage','status','createdAt'];
+      const uHeaders      = ['id','username','password','salt','email','role','stage','status','createdAt'];
       // Password is already hashed in PendingUsers — copy hash + salt
       const newUser = {
         id: generateId(), username: obj.username, password: obj.password,
@@ -1113,9 +1155,9 @@ function rejectUser(payload) {
 // ── إدارة المستخدمين الموافق عليهم ──────────────────────────────
 function getUsers() {
   const users = sheetToObjects(getSheet('Users'));
-  // إزالة كلمات المرور من النتائج
+  // إزالة كلمات المرور والـ salt من النتائج
   return { success: true, data: users.map(u => {
-    const { password: _, ...safe } = u;
+    const { password: _, salt: __, ...safe } = u;
     return safe;
   })};
 }
@@ -1166,6 +1208,27 @@ function updateUser(payload) {
 }
 
 function deleteUser(payload) {
+  // Invalidate all sessions for this user + clear cache
+  try {
+    const cache    = CacheService.getScriptCache();
+    const sessions = getSheet('Sessions');
+    const sData    = sessions.getDataRange().getValues();
+    const sHeaders = sData[0] || [];
+    const uidCol   = sHeaders.indexOf('userId');
+    const tokCol   = sHeaders.indexOf('token');
+    // Delete rows from bottom up to avoid index shifting
+    for (let i = sData.length - 1; i >= 1; i--) {
+      if (String(sData[i][uidCol]) === String(payload.id)) {
+        // Clear cache for this token
+        const tok = String(sData[i][tokCol]);
+        try {
+          cache.remove('sess_' + tok.substring(0, 24));
+          cache.remove('role_' + tok.substring(0, 20));
+        } catch {}
+        sessions.deleteRow(i + 1);
+      }
+    }
+  } catch {}
   return deleteRow('Users', payload.id);
 }
 

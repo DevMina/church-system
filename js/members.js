@@ -167,7 +167,7 @@ function openAddMember(type) {
 
 function editMember(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = list.find(m => m.id === id);
+  const member = (list || []).find(m => String(m.id) === String(String)(id));
   if (!member) return;
   document.getElementById(`${type}ModalTitle`).textContent =
     type === 'khodam' ? 'تعديل بيانات الخادم' : 'تعديل بيانات المخدوم';
@@ -181,7 +181,7 @@ function editMember(type, id) {
 
 function viewMember(type, id) {
   const list = type === 'khodam' ? State.khodam : State.makhdomen;
-  const m    = list.find(x => x.id === id);
+  const m    = list.find(x => String(x.id) === String(String)(id));
   if (!m) return;
 
   document.getElementById('viewModalTitle').textContent =
@@ -277,7 +277,7 @@ async function saveMember(type) {
 
 async function deleteMember(type, id) {
   const list   = type === 'khodam' ? State.khodam : State.makhdomen;
-  const member = list.find(m => m.id === id);
+  const member = list.find(m => String(m.id) === String(String)(id));
   confirmAction(`هل تريد حذف "${member?.name || ''}"؟ لا يمكن التراجع عن هذا الإجراء.`, async () => {
     const result = type === 'khodam'
       ? await API.deleteKhodam(id, member?.stage || '')
@@ -499,13 +499,13 @@ function renderMyMonthlyTable(members, monthAtt, weeks) {
     </thead>
     <tbody>
       ${members.map(m => {
-        const recs = monthAtt.filter(a => a.memberId === m.id);
+        const recs = monthAtt.filter(a => String(a.memberId) === String(m.id));
         const mp   = recs.filter(r => r.mass   === 'present').length;
         const kp   = recs.filter(r => r.khedma === 'present').length;
         return `<tr style="border-bottom:1px solid var(--sage)">
           <td style="padding:8px 12px;font-weight:700">${esc(m.name)}</td>
           ${weeks.map(w => {
-            const rec = monthAtt.find(a => a.memberId === m.id && a.week === w);
+            const rec = monthAtt.find(a => String(a.memberId) === String(m.id) && a.week === w);
             return `<td style="padding:8px 4px;text-align:center">${cell(rec?.mass)}</td>
                     <td style="padding:8px 4px;text-align:center;border-right:2px solid var(--sage)">${cell(rec?.khedma)}</td>`;
           }).join('')}
