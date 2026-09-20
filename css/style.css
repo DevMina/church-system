@@ -992,12 +992,15 @@ tbody td {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-bottom: 24px;
+  align-items: stretch;  /* ensure all grid children stretch to same height */
 }
 
 .dash-banner {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;  /* stack header + body vertically */
 }
 
 .dash-banner-header {
@@ -1015,6 +1018,10 @@ tbody td {
 .dash-banner-body {
   background: var(--white);
   padding: 20px 18px;
+  flex: 1;              /* fill remaining height inside .dash-banner */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .verse-text {
